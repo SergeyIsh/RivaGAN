@@ -61,7 +61,7 @@ class RivaGAN(object):
             raise ValueError("Unknown model: %s" % model)
 
     def fit(self, dataset, log_dir=False,
-            seq_len=1, batch_size=12, lr=5e-4,
+            seq_len=1, batch_size=12, num_workers=16, lr=5e-4,
             use_critic=False, use_adversary=False,
             epochs=300, use_bit_inverse=True, use_noise=True):
 
@@ -86,7 +86,7 @@ class RivaGAN(object):
             return frames
 
         # Set up the data and optimizers
-        train, val = load_train_val(seq_len, batch_size, dataset)
+        train, val = load_train_val(seq_len, batch_size, num_workers, dataset)
         G_opt = optim.Adam(chain(self.encoder.parameters(), self.decoder.parameters()), lr=lr)
         G_scheduler = optim.lr_scheduler.ReduceLROnPlateau(G_opt)
         D_opt = optim.Adam(chain(self.adversary.parameters(), self.critic.parameters()), lr=lr)
