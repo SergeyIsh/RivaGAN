@@ -1,6 +1,7 @@
 import os
 from glob import glob
 from random import randint
+import numpy as np
 
 import cv2
 import torch
@@ -63,12 +64,12 @@ class VideoDataset(Dataset):
             ok, frame = cap.read()
             frame = frame[y:y + dy, x:x + dx]
             frames.append(frame / 127.5 - 1.0)
-        x = torch.FloatTensor(frames)
+        x = torch.from_numpy(np.array(frames, dtype=np.float32)).float()
         x = x.permute(3, 0, 1, 2)
         return x
 
 
-def load_train_val(seq_len, batch_size, dataset="hollywood2"):
+def load_train_val(seq_len, batch_size, num_workers=16, dataset="hollywood2"):
     """
     This returns two dataloaders correponding to the train and validation sets. Each
     iterator yields tensors of shape (N, 3, L, H, W) where N is the batch size, L is
@@ -83,7 +84,7 @@ def load_train_val(seq_len, batch_size, dataset="hollywood2"):
         "%s/train" % dataset,
         crop_size=(160, 160),
         seq_len=seq_len,
-    ), shuffle=True, num_workers=16, batch_size=batch_size, pin_memory=True)
+    ), shuffle=True, num_workers=num_workers, batch_size=batch_size, pin_memory=True)
     val = DataLoader(VideoDataset(
         "%s/val" % dataset,
         crop_size=False,
