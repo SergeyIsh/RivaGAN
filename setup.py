@@ -12,11 +12,12 @@ with open('HISTORY.md') as history_file:
     history = history_file.read()
 
 install_requires = [
-    'opencv-python>=4.1.0',
-    'torch==1.0.1.post2',
-    'torch-dct==0.1.5',
-    'pandas>=0.25,<0.26',
-    'numpy>=1.17.3,<2',
+    'opencv-python>=4.8.0',
+    'torch>=2.1.0',
+    'torch-dct>=0.1.5',
+    'pandas>=2.0.0',
+    'numpy>=1.24.0,<2.2.0',
+    'tqdm>=4.66.0',
 ]
 
 setup_requires = [
@@ -66,13 +67,14 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.10',
     ],
     description='Robust Video Watermarking with Attention',
     extras_require={
         'test': tests_require,
         'dev': development_requires + tests_require,
+        'bch': ['galois>=0.3.0'],
+        'eval': ['galois>=0.3.0', 'invisible-watermark>=0.2.0'],
     },
     install_package_data=True,
     install_requires=install_requires,
@@ -83,7 +85,7 @@ setup(
     keywords='rivagan rivagan RivaGAN',
     name='rivagan',
     packages=find_packages(include=['rivagan', 'rivagan.*']),
-    python_requires='>=3.6',
+    python_requires='>=3.10',
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,
