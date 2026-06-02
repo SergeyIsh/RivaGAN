@@ -1,168 +1,154 @@
-<p align="left">
-<img width=15% src="https://dai.lids.mit.edu/wp-content/uploads/2018/06/Logo_DAI_highres.png" alt=“DAI-Lab” />
-<i>An open source project from Data to AI Lab at MIT.</i>
-</p>
+# RivaGanWithControlBits — водяной знак для защиты авторских прав в видео с BCH-кодированием и скриптами оценки
 
-<!-- Uncomment these lines after releasing the package to PyPI for version and downloads badges -->
-<!--[![PyPI Shield](https://img.shields.io/pypi/v/rivagan.svg)](https://pypi.python.org/pypi/rivagan)-->
-<!--[![Downloads](https://pepy.tech/badge/rivagan)](https://pepy.tech/project/rivagan)-->
-<!--[![Coverage Status](https://codecov.io/gh/DAI-Lab/RivaGAN/branch/master/graph/badge.svg)](https://codecov.io/gh/DAI-Lab/RivaGAN)-->
+Форк [RivaGAN](https://github.com/DAI-Lab/RivaGAN) (MIT): нейросетевой видеоводяной знак с attention-механизмом. В этом репозитории добавлены **контрольные биты BCH**, скрипты **оценки декодирования**, **baseline invisible-watermark (DWT/DCT)** и **метрики качества** модели.
 
-[![Travis CI Shield](https://travis-ci.org/DAI-Lab/RivaGAN.svg?branch=master)](https://travis-ci.org/DAI-Lab/RivaGAN)
+Оригинальная статья: Zhang et al., *Robust Invisible Video Watermarking with Attention*, [arXiv:1909.01285](https://arxiv.org/abs/1909.01285).
 
+Этот репозиторий выполнен в рамках подготовки диссертации магистра на программе ИПИИ ВШЭ.
 
-# RivaGAN
+## Требования
 
-Robust Video Watermarking with Attention
+- **Python 3.10**
+- **NVIDIA GPU с CUDA**
 
-- Free software: MIT license
-- Documentation: https://DAI-Lab.github.io/RivaGAN
-- Homepage: https://github.com/DAI-Lab/RivaGAN
-
-# Overview
-
-The goal of video watermarking is to embed a message within a video file in a
-way such that it minimally impacts the viewing experience but can be recovered
-even if the video is redistributed and modified, allowing media producers to assert
-ownership over their content.
-
-RivaGAN implements a novel architecture for robust video watermarking which features a
-custom attention-based mechanism for embedding arbitrary data as well as two independent
-adversarial networks which critique the video quality and optimize for robustness.
-
-Using this technique, we are able to achieve state-of-the-art results in deep learning-based
-video watermarking and produce watermarked videos which have minimal visual distortion and are
-robust against common video processing operations.
-
-# Install
-
-## Requirements
-
-**RivaGAN** has been developed and tested on [Python3.4, 3.5, 3.6 and 3.7](https://www.python.org/downloads/)
-
-Also, although it is not strictly required, the usage of a [virtualenv](https://virtualenv.pypa.io/en/latest/)
-is highly recommended in order to avoid interfering with other software installed in the system
-in which **RivaGAN** is run.
-
-These are the minimum commands needed to create a virtualenv using python3.6 for **RivaGAN**:
+## Установка
 
 ```bash
-pip install virtualenv
-virtualenv -p $(which python3.6) RivaGAN-venv
+python3.10 -m venv .venv
+source .venv/bin/activate
+
+
+
+pip install -r requirements.txt
+pip install -e .
 ```
 
-Afterwards, you have to execute this command to activate the virtualenv:
+Либо с опциональными группами из `setup.py`:
 
 ```bash
-source RivaGAN-venv/bin/activate
+pip install -e ".[eval]"
 ```
 
-Remember to execute it every time you start a new console to work on **RivaGAN**!
+## Структура проекта
 
-<!-- Uncomment this section after releasing the package to PyPI for installation instructions
-## Install from PyPI
+```
+rivagan/
+├── rivagan.py                      # модель RivaGAN (encode/decode/fit)
+├── watermarking_with_control_bits.py  # RivaGAN + BCH / raw payload
+├── eval_common.py                  # общие хелперы для evaluation-скриптов
+├── evaluation.py                   # оценка декодирования RivaGAN + BCH
+├── evaluation_dct.py               # baseline: invisible-watermark + BCH
+├── model_metrics.py                # SSIM, PSNR, robustness-метрики
+├── experiments.py                  # обучение нескольких моделей по data_dim
+└── ...                             # attention, dense, noise, dataloader
+```
 
-After creating the virtualenv and activating it, we recommend using
-[pip](https://pip.pypa.io/en/stable/) in order to install **RivaGAN**:
+## Обучение
 
 ```bash
-pip install rivagan
+python -m rivagan.experiments \
+  --dataset /path/to/train/videos \
+  --output ./checkpoints \
+  --data_dims 32 64 128 \
+  --epochs 10 \
+  --batch_size 10 \
+  --seq_len 8
 ```
 
-This will pull and install the latest stable release from [PyPI](https://pypi.org/).
--->
+Чекпоинты сохраняются как полный объект `RivaGAN` (`torch.save`), по одному файлу на каждый `data_dim`.
 
-## Install from source
+## Водяной знак с BCH
 
-With your virtualenv activated, you can clone the repository and install it from
-source by running `make install` on the `stable` branch:
+Класс `RivaGanWithControlBits` загружает несколько чекпoинтов и на каждый вызов выбирает модель по `data_dim`.
+
+**Сырой payload** (без BCH, до `data_dim` бит):
+
+```python
+from rivagan.watermarking_with_control_bits import RivaGanWithControlBits
+
+wm = RivaGanWithControlBits(["checkpoints/rivagan_data_dim_32_epochs_10.pt"])
+message = [1, 0, 1, 1, 0, 0, 1, 0]
+
+wm.encode_with_control_bits(
+    "input.mp4", message, "watermarked.mp4",
+    data_dim=32, raw_payload=True,
+)
+
+for bits in wm.decode_with_control_bits(
+    "watermarked.mp4", data_dim=32,
+    message_bits_len=len(message), raw_payload=True,
+):
+    print(bits)  # один вектор на кадр
+    break
+```
+
+**BCH-кодирование** (нужен пакет `galois`):
+
+```python
+wm.encode_with_control_bits(
+    "input.mp4", message, "watermarked.mp4",
+    data_dim=32, bch_n=31, bch_k=16, bch_t=3,
+    raw_payload=False,
+)
+```
+
+Параметры `bch_n`, `bch_k`, `bch_t` должны соответствовать `galois.BCH(bch_n, bch_k)`; `bch_n <= data_dim`.
+
+## Оценка декодирования (RivaGAN)
+
+Пакетная оценка на каталоге видео; результаты в JSON с возобновлением прогона.
 
 ```bash
-git clone git@github.com:DAI-Lab/RivaGAN.git
-cd RivaGAN
-git checkout stable
-make install
+python -m rivagan.evaluation \
+  --models checkpoints/model_32.pt checkpoints/model_64.pt \
+  --dataset ./data/val \
+  --output-json ./evaluation_rivagan_results.json \
+  --num-frames 8 \
+  --correctable-errors 0 1 2 3 \
+  --message-lengths 4 8 16 24
 ```
 
-## Install for Development
+| Параметр | Описание |
+|----------|----------|
+| `--correctable-errors` | `t=0` — raw payload; `t≥1` — автоподбор BCH с исправлением `t` ошибок |
+| `--message-lengths` | длины префиксов одного детерминированного сообщения |
+| `--num-frames` | длина клипа (подряд идущие кадры) на каждое видео |
 
-If you want to contribute to the project, a few more steps are required to make the project ready
-for development.
+В JSON для каждой комбинации: `mean_bit_accuracy`, `full_recovery_frame_fraction`, `majority_vote_success`, сводка `summary_mean_bit_accuracy_by_dim_t_msglen`.
 
-Please head to the [Contributing Guide](https://DAI-Lab.github.io/RivaGAN/contributing.html#get-started)
-for more details about this process.
+## Baseline: invisible-watermark + BCH
 
-# Quickstart
+Сравнение с [invisible-watermark](https://github.com/ShieldMnt/invisible-watermark) (DWT/DCT), тот же протокол BCH/raw.
 
-In this short tutorial we will guide you through a series of steps that will help you
-getting started training your own instance of **RivaGAN**.
-
-## Download the training data
-
-Start by running the following commands to automatically download the Hollywood2 and Moments in
-Time datasets. Depending on the speed of your internet connection, this may take up to an hour.
-
-```
-cd data
-bash download.sh
-```
-
-## Train a model
-
-Now you're ready to train a model.
-
-Make sure to having activated your virtualenv and installed the project, and then
-execute the following python commands:
-
-```
-from rivagan import RivaGAN
-
-model = RivaGAN()
-model.fit("data/hollywood2", epochs=300)
-model.save("/path/to/model.pt")
+```bash
+python -m rivagan.evaluation_dct \
+  --dataset ./data/val \
+  --output-json ./evaluation_dct_results.json \
+  --data-dims 16 32 64 \
+  --correctable-errors 0 1 2 3 \
+  --message-lengths 4 8 16 24 \
+  --wm-method dwtDct
 ```
 
-Make sure to replace the `/path/to/model.pt` string with an appropiate save path.
+Аргумент `--models` оставлен для совместимости CLI и не используется.
 
-## Encode data in a video
+## Метрики качества модели
 
-You can now load the trained model and use it as follows:
+Те же метрики, что в validation-цикле `RivaGAN.fit`:
 
-```
-data = tuple([0] * 32)
-model = RivaGAN.load("/path/to/model.pt")
-model.encode("/path/to/video.avi", data, "/path/to/output.avi")
-```
-
-## Decode data from the video
-
-After the data is encoded in the video, it can be recovered as follows:
-
-```
-recovered_data = model.decode("/path/to/output.avi"):
+```bash
+python -m rivagan.model_metrics \
+  --models checkpoints/model_32.pt \
+  --dataset ./data/val \
+  --output-json ./model_metrics_results.json \
+  --seq-len 8
 ```
 
+Считаются `test.ssim`, `test.psnr`, `test.crop_acc`, `test.scale_acc`, `test.mjpeg_acc`.
 
-# Citing RivaGAN
+## Типичный pipeline
 
-If you use RivaGAN for your research, please consider citing the following work:
-
-Zhang, Kevin Alex and Xu, Lei and Cuesta-Infante, Alfredo and Veeramachaneni, Kalyan. Robust
-Invisible Video Watermarking with Attention. MIT EECS, September 2019. ([PDF](https://arxiv.org/abs/1909.01285))
-
-```
-@article{zhang2019robust,
-    author={Kevin Alex Zhang and Lei Xu and Alfredo Cuesta-Infante and Kalyan Veeramachaneni},
-    title={Robust Invisible Video Watermarking with Attention},
-    year={2019},
-    eprint={1909.01285},
-    archivePrefix={arXiv},
-    primaryClass={cs.MM}
-}
-```
-
-# What's next?
-
-For more details about **RivaGAN** and all its possibilities
-and features, please check the [documentation site](
-https://DAI-Lab.github.io/RivaGAN/).
+1. Обучить модели: `python -m rivagan.experiments ...`
+2. Проверить качество: `python -m rivagan.model_metrics ...`
+3. Оценить декодирование: `python -m rivagan.evaluation ...`
+4. Сравнить с baseline: `python -m rivagan.evaluation_dct ...`
