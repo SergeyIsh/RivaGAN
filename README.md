@@ -1,6 +1,6 @@
 # RivaGanWithControlBits — водяной знак для защиты авторских прав в видео с BCH-кодированием и скриптами оценки
 
-Форк [RivaGAN](https://github.com/DAI-Lab/RivaGAN) (MIT): нейросетевой водяной знак для видео с attention-механизмом. В этом репозитории добавлены **контрольные биты BCH**, скрипты **оценки декодирования**, **baseline invisible-watermark (DWT/DCT)** и **метрики качества** модели.
+Это форк [RivaGAN](https://github.com/DAI-Lab/RivaGAN) (MIT): архитектуры нейросетевого водяного знака для видео с attention-механизмом. В этом репозитории добавлены **контрольные биты BCH**, скрипты **оценки декодирования**, **baseline invisible-watermark (DWT/DCT)** и **метрики качества** модели. Также в папке models есть чекпоинты нескольких обученных моделей.
 
 Оригинальная статья: Zhang et al., *Robust Invisible Video Watermarking with Attention*, [arXiv:1909.01285](https://arxiv.org/abs/1909.01285).
 
@@ -152,3 +152,7 @@ python -m rivagan.model_metrics \
 2. Проверить качество: `python -m rivagan.model_metrics ...`
 3. Оценить декодирование: `python -m rivagan.evaluation ...`
 4. Сравнить с baseline: `python -m rivagan.evaluation_dct ...`
+
+## Визуализация работы алгоритма
+
+Смотрите по ссылке [https://disk.yandex.ru/i/maPL3oNh9NNjAg](https://disk.yandex.ru/i/maPL3oNh9NNjAg)
